@@ -274,12 +274,14 @@ function Copy-ToMtpFolder($mtpFolder, [string]$localFilePath, [string]$fileName)
 }
 
 function Invoke-AdbInstall {
-    Write-Step "正在检测已连接的科大讯飞 T30 平板设备 (ADB / MTP 双模推送)..."
+    Write-Step "正在检测已连接的安卓手机/平板设备 (ADB 直装 / MTP 推送)..."
     Ensure-BuildEnv
-    $apkPath = "$RootDir\dist\$ApkOutputName"
+    $apkUniversal = "$RootDir\dist\cn-math-taxonomy-v1.0.0.apk"
+    $apkPath = if (Test-Path $apkUniversal) { $apkUniversal } else { "$RootDir\dist\$ApkOutputName" }
     if (-not (Test-Path $apkPath)) {
         Write-Host "尚未找到已打包的 APK，先自动触发打包..." -ForegroundColor Yellow
         Invoke-BuildApk
+        $apkPath = if (Test-Path $apkUniversal) { $apkUniversal } else { "$RootDir\dist\$ApkOutputName" }
     }
 
     # 模式 A：优先检查是否开启了 ADB 调试
@@ -288,55 +290,75 @@ function Invoke-AdbInstall {
     $adbExe = "$env:ANDROID_HOME\platform-tools\adb.exe"
     if (Test-Path $adbExe) {
         $adbOut = & $adbExe devices
+        $isUnauthorized = ($adbOut | Select-String -Pattern "\tunauthorized").Count -gt 0
+        if ($isUnauthorized) {
+            Write-Host "`n[等待手机端授权] 检测到手机已连接但尚未点击授权！" -ForegroundColor Yellow
+            Write-Host "👉 请立即点亮手机屏幕，在弹出的「是否允许 USB 调试？」窗口中勾选「始终允许」并点击【允许】..." -ForegroundColor Cyan
+            for ($w = 0; $w -lt 15; $w++) {
+                Start-Sleep -Seconds 2
+                $adbOut = & $adbExe devices
+                if (($adbOut | Select-String -Pattern "\tdevice$").Count -gt 0) {
+                    Write-Host "-> 手机已成功授权 USB 调试！" -ForegroundColor Green
+                    break
+                }
+            }
+        }
+
         $hasAdbDevice = ($adbOut | Select-String -Pattern "\tdevice$").Count -gt 0
         if ($hasAdbDevice) {
-            Write-Host "-> 检测到 ADB 在线设备，正在执行 adb install -r 静默安装..." -ForegroundColor Cyan
+            Write-Host "-> 检测到 ADB 在线设备，正在执行 adb install -r 安装应用..." -ForegroundColor Cyan
+            Write-Host "   (提示：vivo 手机安装时屏幕底部可能会弹出「继续安装」按钮，请留意点击)" -ForegroundColor Yellow
             & $adbExe install -r $apkPath
             if ($LASTEXITCODE -eq 0) {
+                Write-Host "-> 正在手机上自动启动「中小学知识图谱」App..." -ForegroundColor Cyan
+                & $adbExe shell am start -n "com.cnmath.taxonomy.pad/.MainActivity"
                 $ErrorActionPreference = $prevEap
-                Write-Host "[成功] APK 已通过 ADB 直接安装至科大讯飞平板！" -ForegroundColor Green
+                Write-Host "`n[成功] APK 已通过 ADB 直接安装并启动！" -ForegroundColor Green
                 return
+            } else {
+                Write-Warning "ADB 安装返回非零状态码（可能是手机未开启「USB 安装」或未点击屏幕上的「继续安装」确认框）。"
             }
         }
     }
     $ErrorActionPreference = $prevEap
 
-    # 模式 B：科大讯飞学习机默认锁定 ADB，采用 Windows Shell MTP 协议直推平板存储
-    Write-Host "-> 正在通过 USB MTP 协议检索「科大讯飞AI学习机」..." -ForegroundColor Cyan
+    # 模式 B：若 ADB 尚未点允许或被拦截，采用 Windows Shell MTP 协议直推手机/平板存储
+    Write-Host "-> 正在通过 USB MTP 协议检索已连接的手机或平板..." -ForegroundColor Cyan
     $shell = New-Object -ComObject Shell.Application
-    $dev = $shell.NameSpace(17).Items() | Where-Object { $_.Name -match '科大讯飞|学习机|T30|iFly' } | Select-Object -First 1
+    $dev = $shell.NameSpace(17).Items() | Where-Object { $_.Name -match 'Y300|vivo|VIVO|Android|Phone|科大讯飞|学习机|T30|iFly' } | Select-Object -First 1
     if (-not $dev) {
-        Write-Warning "未检测到已连接的「科大讯飞AI学习机」。请确认平板 USB 连接模式已选择「传输文件 (MTP)」。"
+        Write-Warning "未检测到已授权的 ADB 设备或开启「传输文件 (MTP)」的设备。请在手机上点击「允许 USB 调试」后重试。"
         return
     }
 
-    Write-Host "-> 已连接设备: $($dev.Name)" -ForegroundColor Green
+    Write-Host "-> 已连接 MTP 设备: $($dev.Name)" -ForegroundColor Green
     $storage = $dev.GetFolder().Items() | Select-Object -First 1
     if (-not $storage) {
-        Write-Warning "检测到「$($dev.Name)」，但无法读取内部共享存储空间。请在平板屏幕上解锁并确认允许「文件传输」。"
+        Write-Warning "检测到「$($dev.Name)」，但无法读取内部存储。请在手机下拉通知栏将 USB 用途切换为「传输文件」。"
         return
     }
 
+    $targetFileName = Split-Path $apkPath -Leaf
     $rootFolder = $storage.GetFolder()
-    Write-Host "-> 正在将 $ApkOutputName 推送至「$($dev.Name)\$($storage.Name)」根目录..." -ForegroundColor Gray
-    $okRoot = Copy-ToMtpFolder $rootFolder $apkPath $ApkOutputName
+    Write-Host "-> 正在将 $targetFileName 推送至「$($dev.Name)\$($storage.Name)」根目录..." -ForegroundColor Gray
+    $okRoot = Copy-ToMtpFolder $rootFolder $apkPath $targetFileName
 
     $dlItem = $rootFolder.Items() | Where-Object { $_.Name -eq 'Download' } | Select-Object -First 1
     $okDl = $false
     if ($dlItem) {
-        Write-Host "-> 正在将 $ApkOutputName 推送至「$($dev.Name)\$($storage.Name)\Download」目录..." -ForegroundColor Gray
-        $okDl = Copy-ToMtpFolder $dlItem.GetFolder() $apkPath $ApkOutputName
+        Write-Host "-> 正在将 $targetFileName 推送至「$($dev.Name)\$($storage.Name)\Download」目录..." -ForegroundColor Gray
+        $okDl = Copy-ToMtpFolder $dlItem.GetFolder() $apkPath $targetFileName
     }
 
     if ($okRoot -or $okDl) {
-        Write-Host "`n[成功] APK 安装包已成功传输至「科大讯飞AI学习机」内部存储！" -ForegroundColor Green
-        Write-Host "  平板路径 1 : 内部共享存储空间\$ApkOutputName" -ForegroundColor Yellow
+        Write-Host "`n[成功] APK 安装包已成功传输至「$($dev.Name)」内部存储！" -ForegroundColor Green
+        Write-Host "  设备路径 1 : 内部存储\$targetFileName" -ForegroundColor Yellow
         if ($okDl) {
-            Write-Host "  平板路径 2 : 内部共享存储空间\Download\$ApkOutputName" -ForegroundColor Yellow
+            Write-Host "  设备路径 2 : 内部存储\Download\$targetFileName" -ForegroundColor Yellow
         }
-        Write-Host "  下一步操作 : 请在平板上打开「文件管理」->「安装包 (或内部存储/Download)」，点击 $ApkOutputName 即可完成安装！" -ForegroundColor Cyan
+        Write-Host "  下一步操作 : 请在手机上打开「文件管理」->「安装包 (或 Download)」，点击 $targetFileName 即可安装！" -ForegroundColor Cyan
     } else {
-        Write-Warning "MTP 传输未能确认完成，请检查平板屏幕是否处于解锁状态。"
+        Write-Warning "MTP 传输未能确认完成，请检查设备屏幕是否处于解锁状态。"
     }
 }
 
