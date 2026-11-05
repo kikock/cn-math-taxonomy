@@ -1,0 +1,17 @@
+{
+  "appId": "com.cnmath.taxonomy.pad",
+  "appName": "中小学知识图谱",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "backgroundColor": "#f5f2e9",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "localhost"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
+

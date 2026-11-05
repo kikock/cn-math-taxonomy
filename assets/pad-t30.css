@@ -1,0 +1,566 @@
+/* 科大讯飞 T30 (T30 Pro / T30 Ultra) 14.7 英寸 3K (3024×2016, 3:2) 类纸护眼屏专项适配样式
+ * 包含：
+ * 1. 类纸暖光护眼模式配色 (Paper-Like Eye-Care Theme) 与三档字号无感调节
+ * 2. 儿童纯净学习模式 (屏蔽外网推广横幅与外部跳转链接)
+ * 3. 14.7 寸大屏响应式网格：首页 6 列年级矩阵、图谱页三栏黄金比例、诊断页「左题右草稿」双栏工作台
+ * 4. 第三代星闪 AI 手写笔压感草稿本与平板内联数学小键盘样式
+ */
+
+/* ---------- 1. 类纸暖光护眼主题变量与三档字号 ---------- */
+html[data-eyecare="paper"] {
+  --bg: #f5f2e9;
+  --bg-elev: #fcfaf4;
+  --bg-muted: #ebe6d8;
+  --text: #1c2026;
+  --muted: #575e68;
+  --line: #dcd5c5;
+  --header-bg: #f8f5ec;
+  --panel: #fcfaf4;
+  --shadow: 0 1px 3px rgba(28, 32, 38, 0.04), 0 8px 24px rgba(28, 32, 38, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-eyecare="paper"] {
+    --bg: #14171d;
+    --bg-elev: #1d212a;
+    --bg-muted: #262c38;
+    --text: #e6e4dd;
+    --muted: #a3aab8;
+    --line: #343c4c;
+    --header-bg: #191d25;
+    --panel: #1d212a;
+  }
+}
+
+html[data-font-scale="std"] { --fs: 17px; }
+html[data-font-scale="lg"]  { --fs: 19px; }
+html[data-font-scale="xl"]  { --fs: 21px; }
+
+/* ---------- 2. 儿童纯净学习模式 (Pure Study Mode) ---------- */
+body.pure-study-mode .top-banner,
+body.pure-study-mode .iq-card,
+body.pure-study-mode .iq-line,
+body.pure-study-mode #iq-line,
+body.pure-study-mode .resource-search-btn,
+body.pure-study-mode .site-footer,
+body.pure-study-mode a[href*="pansgo.com"],
+body.pure-study-mode a[href*="github.com"] {
+  display: none !important;
+}
+
+/* ---------- 3. 顶栏平板护眼与纯净模式控制组 ---------- */
+.pad-header-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+}
+
+.pad-tool-btn {
+  min-height: 36px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pad-tool-btn:hover {
+  color: var(--text);
+  background: rgba(15, 110, 98, 0.06);
+}
+
+.pad-tool-btn.on {
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 800;
+}
+
+/* ---------- 4. 平板大屏布局适配 (科大讯飞 T30: 1512×1008dp 横屏 / 1008×1512dp 竖屏) ---------- */
+@media (min-width: 960px) {
+  :root {
+    --fs: 18px;
+  }
+
+  /* 增大平板触控热区 (最小 52~56px) */
+  button, .btn, .nav-link, select, input[type="search"], input[type="text"], input[type="number"] {
+    min-height: 50px;
+  }
+
+  .site-header {
+    padding: 12px 32px;
+    gap: 10px 20px;
+  }
+
+  /* 首页拓宽至 1380px，年级入口扩展为 6 列矩阵（小学 1~6 年级同行展示） */
+  .home {
+    width: min(1380px, 100%);
+    padding: 28px 32px 56px;
+  }
+
+  .grade-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  a.grade-card {
+    min-height: 112px;
+    padding: 16px 18px;
+  }
+
+  /* 孩子档案页拓宽 */
+  main.kids {
+    width: min(1160px, 100%);
+    margin: 0 auto;
+    padding: 24px 28px 56px;
+  }
+}
+
+@media (min-width: 1200px) {
+  /* 知识图谱三栏黄金比例拓宽 (适配 1512dp 宽度) */
+  .explore {
+    grid-template-columns: minmax(310px, 360px) minmax(0, 1fr) minmax(360px, 440px);
+  }
+
+  .topic-item {
+    padding: 11px 14px;
+    margin: 3px 8px;
+  }
+
+  .detail {
+    padding: 20px 24px 32px;
+  }
+}
+
+/* ---------- 5. 诊断页「左题右草稿」双栏工作台 (Diagnose Workbench) ---------- */
+.diagnose-workbench {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 20px 24px 56px;
+  display: block;
+}
+
+.diagnose-workbench main#root {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: 0;
+}
+
+/* 当处于答题阶段且草稿本开启时，激活双栏并排工作台 */
+.diagnose-workbench.workbench-active {
+  display: grid;
+  grid-template-columns: minmax(480px, 52%) minmax(420px, 48%);
+  gap: 20px;
+  align-items: start;
+}
+
+.diagnose-workbench.workbench-active main#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* 竖屏或窄于 1020px 时改为上下堆叠 */
+@media (max-width: 1020px) {
+  .diagnose-workbench {
+    padding: 16px 14px 48px;
+  }
+  .diagnose-workbench.workbench-active {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 诊断页选项按钮针对平板触控强化 */
+button.choice {
+  min-height: 56px;
+  padding: 14px 18px;
+  font-size: 1.06rem;
+  border-width: 1.5px;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+/* ---------- 6. 星闪 AI 手写笔压感演算草稿本 (Scratchpad) ---------- */
+.scratchpad-pane {
+  position: sticky;
+  top: 84px;
+  background: var(--bg-elev);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 620px;
+  height: calc(100dvh - 110px);
+  max-height: 880px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.scratchpad-pane[hidden] {
+  display: none !important;
+}
+
+/* 全屏演算模式 */
+.scratchpad-pane.is-fullscreen {
+  position: fixed;
+  inset: 12px;
+  z-index: 90;
+  height: auto;
+  max-height: none;
+  border-width: 2px;
+  border-color: var(--brand);
+}
+
+.scratchpad-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.scratchpad-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.98rem;
+  color: var(--text);
+}
+
+.scratchpad-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.scratchpad-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--line);
+}
+
+.sp-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+}
+
+.sp-btn {
+  min-height: 38px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sp-btn:hover:not(:disabled) {
+  background: rgba(15, 110, 98, 0.08);
+}
+
+.sp-btn.on {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.sp-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.sp-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+
+.scratchpad-stage {
+  position: relative;
+  flex: 1;
+  min-height: 380px;
+  width: 100%;
+  background: var(--bg-elev);
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* 三种理科演算底纹：空白、数学方格、平面直角坐标系 */
+.scratchpad-stage[data-grid="square"] {
+  background-image:
+    linear-gradient(to right, rgba(100, 116, 139, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(100, 116, 139, 0.14) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.scratchpad-stage[data-grid="axes"] {
+  background-image:
+    linear-gradient(to right, rgba(100, 116, 139, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(100, 116, 139, 0.12) 1px, transparent 1px),
+    linear-gradient(to right, transparent calc(50% - 1px), rgba(15, 110, 98, 0.38) calc(50% - 1px), rgba(15, 110, 98, 0.38) calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(to bottom, transparent calc(50% - 1px), rgba(15, 110, 98, 0.38) calc(50% - 1px), rgba(15, 110, 98, 0.38) calc(50% + 1px), transparent calc(50% + 1px));
+  background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%;
+}
+
+.scratchpad-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.scratchpad-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--header-bg);
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.scratchpad-toggle-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  min-height: 52px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  border: none;
+  box-shadow: 0 4px 18px rgba(15, 110, 98, 0.32);
+  font-weight: 800;
+  font-size: 0.96rem;
+}
+
+/* ---------- 7. 平板内联数学小键盘 (Math Numpad) ---------- */
+.pad-numpad {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pad-numpad-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.86rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.pad-numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pad-numpad-key {
+  min-height: 52px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 1.18rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.pad-numpad-key:active {
+  transform: scale(0.97);
+  background: var(--brand-soft);
+}
+
+.pad-numpad-key.key-fn {
+  font-size: 0.96rem;
+  background: var(--header-bg);
+  color: var(--brand-strong);
+}
+
+.pad-numpad-key.key-submit {
+  grid-column: span 2;
+  background: var(--brand);
+  color: var(--on-brand);
+  border-color: transparent;
+  font-size: 1.02rem;
+}
+
+/* ---------- 8. 原生返回退出提示 Toast ---------- */
+.pad-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(36px, calc(20px + env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
+  z-index: 120;
+  background: rgba(23, 25, 31, 0.92);
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+}
+
+/* ---------- 9. 手机端 (Mobile Phone < 960px / < 768px) 全端自适应优化 ---------- */
+@media (max-width: 959px) {
+  /* 手机端演算草稿本采用底部半屏悬浮抽屉 (Bottom Sheet)，上半屏可同时看题 */
+  .scratchpad-pane {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom, 8px));
+    height: 62dvh;
+    min-height: 320px;
+    max-height: 78dvh;
+    z-index: 88;
+    border-width: 2px;
+    border-color: var(--brand);
+    box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.22);
+  }
+
+  .scratchpad-stage {
+    min-height: 180px;
+  }
+
+  .scratchpad-toggle-fab {
+    right: 16px;
+    bottom: max(18px, calc(12px + env(safe-area-inset-bottom, 0px)));
+    min-height: 44px;
+    padding: 0 15px;
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-width: 767px) {
+  /* 手机端三档字号自适应缩放，防止在小屏竖屏下撑破卡片 */
+  html[data-font-scale="std"] { --fs: 15.5px; }
+  html[data-font-scale="lg"]  { --fs: 16.5px; }
+  html[data-font-scale="xl"]  { --fs: 18px; }
+
+  .site-header {
+    padding: max(8px, env(safe-area-inset-top, 8px)) 12px 8px;
+    gap: 6px 10px;
+  }
+
+  .pad-header-tools {
+    gap: 4px;
+    padding: 2px 4px;
+  }
+
+  .pad-tool-btn {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 0.76rem;
+  }
+
+  .diagnose-workbench {
+    padding: 12px 10px calc(44px + env(safe-area-inset-bottom, 0px));
+  }
+
+  button.choice {
+    min-height: 48px;
+    padding: 11px 14px;
+    font-size: 0.98rem;
+  }
+
+  /* 手机端紧凑型内联数学键盘 */
+  .pad-numpad {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .pad-numpad-head {
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+  }
+
+  .pad-numpad-grid {
+    gap: 5px;
+  }
+
+  .pad-numpad-key {
+    min-height: 42px;
+    border-radius: 9px;
+    font-size: 1.02rem;
+  }
+
+  .pad-numpad-key.key-fn {
+    font-size: 0.8rem;
+  }
+
+  .pad-numpad-key.key-submit {
+    font-size: 0.9rem;
+  }
+
+  .scratchpad-header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .scratchpad-toolbar {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .sp-btn {
+    min-height: 32px;
+    padding: 0 8px;
+    font-size: 0.78rem;
+  }
+}
+
