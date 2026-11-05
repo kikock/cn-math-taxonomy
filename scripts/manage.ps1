@@ -316,7 +316,17 @@ function Invoke-AdbInstall {
                 Write-Host "`n[成功] APK 已通过 ADB 直接安装并启动！" -ForegroundColor Green
                 return
             } else {
-                Write-Warning "ADB 安装返回非零状态码（可能是手机未开启「USB 安装」或未点击屏幕上的「继续安装」确认框）。"
+                Write-Warning "手机系统拦截了静默安装（vivo/小米等需在手机屏幕点击确认），正在改为通过 ADB 高速通道将安装包直接推送至手机存储..."
+                & $adbExe push $apkPath "/sdcard/Download/cn-math-taxonomy-v1.0.0.apk"
+                & $adbExe push $apkPath "/sdcard/cn-math-taxonomy-v1.0.0.apk"
+                if ($LASTEXITCODE -eq 0) {
+                    $ErrorActionPreference = $prevEap
+                    Write-Host "`n[成功] 安装包已通过 ADB 高速推送至手机内部存储！" -ForegroundColor Green
+                    Write-Host "  手机路径 1 : 内部存储/Download/cn-math-taxonomy-v1.0.0.apk" -ForegroundColor Yellow
+                    Write-Host "  手机路径 2 : 内部存储/cn-math-taxonomy-v1.0.0.apk" -ForegroundColor Yellow
+                    Write-Host "  下一步操作 : 请打开手机自带的「文件管理」->「安装包 (或 Download 文件夹)」，点击 cn-math-taxonomy-v1.0.0.apk 即可安装！" -ForegroundColor Cyan
+                    return
+                }
             }
         }
     }
