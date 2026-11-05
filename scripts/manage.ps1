@@ -343,8 +343,11 @@ function Invoke-AdbInstall {
 # ------------------------------------------------------------------------------
 # 命令行参数直通模式
 # ------------------------------------------------------------------------------
-if ($args.Count -gt 0) {
-    $cmd = $args[0].ToLower()
+$rawCli = if ($env:CNM_CLI_ARGS) { $env:CNM_CLI_ARGS.Trim() } elseif ($args.Count -gt 0) { ($args -join " ").Trim() } else { "" }
+if ($rawCli) {
+    $parts = $rawCli -split '\s+', 2
+    $cmd = $parts[0].ToLower()
+    $restArg = if ($parts.Count -gt 1) { $parts[1].Trim('"') } else { "" }
     switch ($cmd) {
         "all" {
             Invoke-GitUpdate
@@ -356,10 +359,7 @@ if ($args.Count -gt 0) {
         "update" { Invoke-GitUpdate }
         "nas"    { Invoke-DeployNas }
         "test"   { Invoke-UnitTests }
-        "git"    {
-            $msg = if ($args.Count -gt 1) { $args[1] } else { "" }
-            Invoke-GitPublish $msg
-        }
+        "git"    { Invoke-GitPublish $restArg }
         "adb"    { Invoke-AdbInstall }
         default  {
             Write-Host "未知参数: $cmd" -ForegroundColor Red
