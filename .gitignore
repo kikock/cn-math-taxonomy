@@ -1,4 +1,12 @@
 node_modules/
+www/
+android/
+dist/
+*.apk
+*.aab
+*.keystore
+*.jks
+package-lock.json
 .DS_Store
 *.log
 claude*.log
@@ -11,3 +19,8 @@ __pycache__/
 PROMPT*.md
 chain.sh
 .cf-token-workers
+.idea/
+.gitignore
+update_nas.ps1
+build_apk.ps1
+manage.bat

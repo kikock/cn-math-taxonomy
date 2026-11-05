@@ -8,7 +8,9 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "python3 tests/test_jmor_safety.py && node tests/test_jmor_frontend.js && node tests/test_ci_workflow.js && node tests/test_engine.js && node tests/test_blindspots.js && node tests/test_children.js && node tests/test_question_ids.js && node tests/test_stem_compat.js && node tests/test_report_link.js && node tests/test_home.js && python3 scripts/validate.py && python3 scripts/check_figures.py && python3 scripts/verify_questions.py --report /tmp/cn-math-taxonomy-verification-report.json"
+    "test": "python3 tests/test_jmor_safety.py && node tests/test_jmor_frontend.js && node tests/test_ci_workflow.js && node tests/test_engine.js && node tests/test_blindspots.js && node tests/test_children.js && node tests/test_question_ids.js && node tests/test_stem_compat.js && node tests/test_report_link.js && node tests/test_home.js && python3 scripts/validate.py && python3 scripts/check_figures.py && python3 scripts/verify_questions.py --report /tmp/cn-math-taxonomy-verification-report.json && node tests/test_pad_t30.js",
+    "build:www": "node scripts/build-www.js",
+    "cap:sync": "node scripts/build-www.js && npx cap sync android"
   },
   "repository": {
     "type": "git",
@@ -26,5 +28,15 @@
     "esbuild@0.27.3": true,
     "workerd@1.20260426.1": true,
     "sharp@0.34.5": true
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.3",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/filesystem": "^6.0.4",
+    "@capacitor/share": "^6.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.1"
   }
 }
