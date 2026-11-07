@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """把小学语文草稿编译进 data/topics.json、dependencies.json、questions.json、课标文件。
 
-可以重复运行：先去掉已有的 cnc_ 知识点和 ccs- 课标条目，再按脚本重新写入。
-不改数学、英语、物理的知识点、先修、题目和课标。先修边只对语文边做传递约简。
+可以重复运行：先去掉已有的 cnc_p 知识点和小学课标条目（ccs-2022 学段 1–3），再按脚本重新写入。
+不改数学、英语、物理和初中语文 cnc_j 的知识点、先修、题目和第四学段课标。
+先修边只对小学语文边做传递约简。
 
 用法：python3 scripts/zh_build.py
 """
@@ -24,7 +25,10 @@ import zh_g4  # noqa: E402,F401
 import zh_g5  # noqa: E402,F401
 import zh_g6  # noqa: E402,F401
 import zh_edges  # noqa: E402,F401
-from zh_lib import HARD, STANDARD_ROWS, TOPICS, chapter, check_question, materialise_questions  # noqa: E402
+from zh_lib import (  # noqa: E402
+    HARD, STAGE13_REF, STAGE13_STATUS, STANDARD_ROWS, TOPICS,
+    chapter, check_question, materialise_questions,
+)
 from verify_questions import verify_all  # noqa: E402
 
 ZH_CODES = {
@@ -48,7 +52,28 @@ def dump(name, data):
 
 
 def is_zh_topic_id(tid):
-    return str(tid).startswith("cnc_")
+    """小学语文 id。重跑时只清 cnc_p，不删初中 cnc_j。"""
+    return str(tid).startswith("cnc_p")
+
+
+def is_zh_junior_id(tid):
+    return str(tid).startswith("cnc_j")
+
+
+def is_primary_zh_std(sid):
+    return bool(re.match(r"^ccs-2022:[123]\.", str(sid)))
+
+
+def splice_where(original, pred, new_items):
+    """用 new_items 按原顺序替换 original 里 pred 为真的项。条数不同时才改接到末尾。"""
+    idxs = [i for i, x in enumerate(original) if pred(x)]
+    if len(idxs) != len(new_items):
+        kept = [x for x in original if not pred(x)]
+        return kept + list(new_items)
+    out = list(original)
+    for i, item in zip(idxs, new_items):
+        out[i] = item
+    return out
 
 
 def reaches(adj, src, dst, hard_only):
@@ -68,7 +93,7 @@ def reaches(adj, src, dst, hard_only):
 
 
 def reduce_chinese(edges):
-    """只删除语文知识点上的冗余边。hard 仅当另有全 hard 路径时删；soft 只要另有路径就删。"""
+    """只删除小学语文（cnc_p）上的冗余边。hard 仅当另有全 hard 路径时删；soft 只要另有路径就删。不约简初中语文边。"""
     adj = defaultdict(list)
     for e in edges:
         adj[e["topicId"]].append([e["prerequisiteId"], e["strength"]])
@@ -101,15 +126,23 @@ def build_standards():
         counters[key] = counters.get(key, 0) + 1
         sid = "ccs-2022:%s.%s.%02d" % (level, code, counters[key])
         id_of[symbol] = sid
+        ref = STAGE13_REF.get(symbol)
+        status = STAGE13_STATUS.get(symbol)
+        if not ref or not status:
+            raise SystemExit("第一至第三学段缺少印刷页或核对说明：%s" % symbol)
+        if not str(ref).startswith("人教社电子书印刷页") or "转述" not in ref:
+            raise SystemExit("第一至第三学段 page_or_ref 不合格：%s" % symbol)
+        if "2026-11-06" not in status:
+            raise SystemExit("第一至第三学段 text_status 未记下核对日期：%s" % symbol)
         items.append({
             "id": sid,
             "domain": domain,
             "section": section,
             "clause": "(%d)" % counters[key],
             "text": text,
-            "page_or_ref": "待核",
+            "page_or_ref": ref,
             "verbatim": False,
-            "text_status": "公开转述，未与《义务教育语文课程标准（2022年版）》逐页核对",
+            "text_status": status,
         })
     return id_of, items
 
@@ -163,11 +196,12 @@ def main():
         return 1
 
     base_topics = [t for t in topics if not is_zh_topic_id(t.get("id"))]
-    base_deps = [e for e in deps if not is_zh_topic_id(e.get("topicId")) and not is_zh_topic_id(e.get("prerequisiteId"))]
+    # 只去掉小学语文发出的边；初中指向小学的边保留。
+    base_deps = [e for e in deps if not is_zh_topic_id(e.get("topicId"))]
     base_questions = [q for q in questions if not is_zh_topic_id(q.get("topicId"))]
-    base_items = [it for it in standards.get("items", []) if not str(it.get("id", "")).startswith("ccs-")]
+    base_items = [it for it in standards.get("items", []) if not is_primary_zh_std(it.get("id", ""))]
     if any(is_zh_topic_id(t.get("id")) for t in base_topics):
-        print("剥离语文知识点失败", file=sys.stderr)
+        print("剥离小学语文知识点失败", file=sys.stderr)
         return 1
 
     id_of_std, new_items = build_standards()
@@ -275,11 +309,11 @@ def main():
 
     merged_deps, dropped = reduce_chinese(base_deps + new_edges)
     zh_edges = [e for e in merged_deps if is_zh_topic_id(e["topicId"])]
-    if any(not is_zh_topic_id(e["prerequisiteId"]) for e in zh_edges):
+    if any(not str(e["prerequisiteId"]).startswith("cnc_") for e in zh_edges):
         print("语文边连到了其他学科", file=sys.stderr)
         return 1
-    if any(is_zh_topic_id(e["topicId"]) or is_zh_topic_id(e["prerequisiteId"]) for e in base_deps):
-        print("剥离后的依赖里仍有语文边", file=sys.stderr)
+    if any(is_zh_topic_id(e["topicId"]) for e in base_deps):
+        print("剥离后的依赖里仍有小学语文边", file=sys.stderr)
         return 1
     covered = {e["topicId"] for e in zh_edges}
     missing = [t["id"] for t in new_topics if t["id"] != "cnc_p001" and t["id"] not in covered]
@@ -298,12 +332,45 @@ def main():
     kept_std = {k: v for k, v in standards.items() if k != "items" and k != "chinese"}
     standards_out = dict(standards)
     standards_out["items"] = list(base_items) + new_items
+    has_junior_std = any(str(it.get("id", "")).startswith("ccs-2022:4.") for it in base_items)
+    zh_note = (
+        "条目是对第一至第三学段学习要求的公开转述，不是逐页核对的原文。"
+        "verbatim 为 false。第一至第三学段 page_or_ref 记人教社电子书印刷页7–13，不是教育部 PDF 页码。"
+        "编号 ccs-2022 是本图谱编的，不是教育部原编号。一年级按2024年起修订的统编教材编排，二上、三上按2025秋修订目录编排，"
+        "二下、三下按2026春修订目录编排，四上按2024修订统编目录逐课覆盖，四下按统编现行目录逐课覆盖，"
+        "五上按2026秋统编目录逐课覆盖，五下按统编现行目录逐课覆盖，六上按2026秋统编目录逐课覆盖，"
+        "六下按统编现行目录逐课覆盖，没有写入页码。"
+        "2026-11-06 抽查册次：人教社张漫漫《统编小学语文教科书一年级上册修订要点》"
+        "（https://www.pep.com.cn/bks/xxyw/jzjd/202505/W020250531415592673618.pdf）"
+        "只证实一上减课文、识字量改为280、拼音单元增为三个，没有逐课目录；"
+        "六年级上册没有打开到人教社或智慧教育平台的2026秋目录。"
+    )
+    old_zh = standards.get("chinese") or {}
+    if has_junior_std:
+        zh_note = zh_note.replace("第一至第三学段学习要求", "第一至第四学段学习要求", 1)
+        zh_note = zh_note.replace(
+            "第一至第三学段 page_or_ref 记人教社电子书印刷页7–13，不是教育部 PDF 页码。",
+            "第一至第三学段 page_or_ref 记人教社电子书印刷页7–13，"
+            "第四学段记印刷页14–16，都不是教育部 PDF 页码。",
+            1,
+        )
+        extra = old_zh.get("note") or ""
+        marker = "第四学段（7–9年级）"
+        if marker in extra and marker not in zh_note:
+            # 保留初中编译脚本写入的第四学段说明（含 2026-11-06 人教社电子书印刷页）。
+            tail = extra[extra.find(marker):]
+            zh_note = (zh_note + " " + tail).strip()
+        elif marker not in zh_note:
+            zh_note += (
+                "第四学段（7–9年级）条目是对学段要求的公开转述，不是逐页核对的原文。"
+                "印刷页说明由 scripts/zhj_build.py 写入。"
+            )
     standards_out["chinese"] = {
         "title": "义务教育语文课程标准（2022年版）",
         "issuer": "中华人民共和国教育部",
         "year": 2022,
-        "stage": "第一至第三学段",
-        "note": "条目是对第一至第三学段学习要求的公开转述，不是逐页核对的原文。verbatim 为 false，page_or_ref 为「待核」。编号 ccs-2022 是本图谱编的，不是教育部原编号。一年级按2024年起修订的统编教材编排，二上、三上按2025秋修订目录编排，二下、三下按2026春修订目录编排，四上按2024修订统编目录逐课覆盖，四下按统编现行目录逐课覆盖，五上按2026秋统编目录逐课覆盖，五下按统编现行目录逐课覆盖，六上按2026秋统编目录逐课覆盖，六下按统编现行目录逐课覆盖，没有写入页码。",
+        "stage": "第一至第四学段（1–9年级）" if has_junior_std else "第一至第三学段",
+        "note": zh_note,
     }
     for k, v in kept_std.items():
         standards_out[k] = v
@@ -311,6 +378,7 @@ def main():
     math_before = [(t["id"], t["name"]) for t in base_topics if str(t["id"]).startswith("cnm_")]
     en_before = [(t["id"], t["name"]) for t in base_topics if str(t["id"]).startswith("cne_")]
     phy_before = [(t["id"], t["name"]) for t in base_topics if str(t["id"]).startswith("cnp_")]
+    junior_before = [(t["id"], t["name"]) for t in base_topics if is_zh_junior_id(t.get("id"))]
 
     n_hard = sum(1 for e in zh_edges if e["strength"] == "hard")
     n_soft = sum(1 for e in zh_edges if e["strength"] == "soft")
@@ -324,9 +392,17 @@ def main():
     print("题目 %d" % len(new_questions))
     print("课标条目 %d" % len(new_items))
 
-    dump("topics.json", base_topics + new_topics)
-    dump("dependencies.json", merged_deps)
-    dump("questions.json", base_questions + new_questions)
+    # 按原位置替换小学语文，避免重跑把 cnc_p 挪到文件末尾。
+    standards_out["items"] = splice_where(
+        standards.get("items") or [],
+        lambda it: is_primary_zh_std(it.get("id", "")),
+        new_items,
+    )
+    dump("topics.json", splice_where(topics, lambda t: is_zh_topic_id(t.get("id")), new_topics))
+    dump("dependencies.json", splice_where(
+        deps, lambda e: is_zh_topic_id(e.get("topicId")), zh_edges))
+    dump("questions.json", splice_where(
+        questions, lambda q: is_zh_topic_id(q.get("topicId")), new_questions))
     dump("cn-curriculum-standards.json", standards_out)
 
     again_t = load("topics.json")
@@ -334,11 +410,11 @@ def main():
     again_q = load("questions.json")
     again_s = load("cn-curriculum-standards.json")
     again_topics = [t for t in again_t if not is_zh_topic_id(t.get("id"))]
-    again_deps = [e for e in again_d if not is_zh_topic_id(e.get("topicId")) and not is_zh_topic_id(e.get("prerequisiteId"))]
+    again_deps = [e for e in again_d if not is_zh_topic_id(e.get("topicId"))]
     again_qs = [q for q in again_q if not is_zh_topic_id(q.get("topicId"))]
-    again_items = [it for it in again_s.get("items", []) if not str(it.get("id", "")).startswith("ccs-")]
+    again_items = [it for it in again_s.get("items", []) if not is_primary_zh_std(it.get("id", ""))]
     if again_topics != base_topics or again_deps != base_deps or again_qs != base_questions or again_items != base_items:
-        print("数学、英语或物理数据在写回后发生了变化", file=sys.stderr)
+        print("数学、英语、物理或初中语文数据在写回后发生了变化", file=sys.stderr)
         return 1
     if [(t["id"], t["name"]) for t in again_t if str(t["id"]).startswith("cnm_")] != math_before:
         print("数学知识点 id 或名称变了", file=sys.stderr)
@@ -349,6 +425,9 @@ def main():
     if [(t["id"], t["name"]) for t in again_t if str(t["id"]).startswith("cnp_")] != phy_before:
         print("物理知识点 id 或名称变了", file=sys.stderr)
         return 1
+    if [(t["id"], t["name"]) for t in again_t if is_zh_junior_id(t.get("id"))] != junior_before:
+        print("初中语文知识点 id 或名称变了", file=sys.stderr)
+        return 1
     for k, v in kept_std.items():
         if again_s.get(k) != v:
             print("原课标对象 %s 发生了变化" % k, file=sys.stderr)
@@ -356,8 +435,8 @@ def main():
     if again_s.get("chinese", {}).get("title") != "义务教育语文课程标准（2022年版）":
         print("语文课标标题不正确", file=sys.stderr)
         return 1
-    print("数学 %d、英语 %d、物理 %d 个知识点的 id 与名称未改" % (
-        len(math_before), len(en_before), len(phy_before)))
+    print("数学 %d、英语 %d、物理 %d、初中语文 %d 个知识点的 id 与名称未改" % (
+        len(math_before), len(en_before), len(phy_before), len(junior_before)))
     return 0
 
 
